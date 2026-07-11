@@ -2,7 +2,8 @@ name: Build Windows Release
 
 on:
   release:
-     types: [published]
+    types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -85,7 +86,12 @@ jobs:
         ref: ${{ github.ref }}
     - name: Get the tag name
       id: get_tag_name
-      run: echo "tagname=${GITHUB_REF#refs/tags/}" | sed 's/v//' >> $GITHUB_OUTPUT
+      run: |
+        if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+          echo "tagname=${GITHUB_REF#refs/tags/}" | sed 's/v//' >> $GITHUB_OUTPUT
+        else
+          echo "tagname=manual" >> $GITHUB_OUTPUT
+        fi
     - name: build
       run: |
         export LDFLAGS="-s -Wl,-no-undefined -Wl,-O1 -static"
@@ -101,10 +107,9 @@ jobs:
         pod2text doc/en/sidplayfp.pod > sidplayfp.txt
         pod2text doc/en/stilview.pod > stilview.txt
         zip sidplayfp-${{ steps.get_tag_name.outputs.tagname }}-${{matrix.name}}.zip *.exe README* AUTHORS *.txt
-    - uses: svenstaro/upload-release-action@v2
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
       with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: sidplayfp-${{ steps.get_tag_name.outputs.tagname }}-${{matrix.name}}.zip
-        tag: ${{ github.ref }}
-        file_glob: true
-        overwrite: true
+        name: sidplayfp-${{ matrix.name }}
+        path: |
+          *.zip
